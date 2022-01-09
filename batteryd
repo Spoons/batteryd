@@ -1,0 +1,62 @@
+#!/usr/bin/env python3
+
+import time
+import pathlib
+import dbus
+
+def send_notification(title: str, msg: str, time_ms: int):
+    bus_name = "org.freedesktop.Notifications"
+    object_path = "/org/freedesktop/Notifications"
+    interface = bus_name
+
+    notify = dbus.Interface(dbus.SessionBus().get_object(bus_name, object_path), interface)
+    notify.Notify("",0,"",title, msg, [], {"urgency":1}, time_ms)
+
+warnings = [25, 20, 15, 10] + list(range(10, 20))
+warnings = sorted(warnings, reverse=True)
+
+poll_duration_decrease_offset = 15
+poll_short = 30
+poll_long = 60 * 5
+
+previous = None
+while True:
+    try:
+        capacity = None
+        with open(pathlib.Path('/sys/class/power_supply/BAT0/capacity')) as f:
+            capacity = f.read().strip()
+
+        status = None
+        with open(pathlib.Path('/sys/class/power_supply/BAT0/status')) as f:
+            status = f.read().strip()
+    except IOError:
+        print("Unable to read battery status from /sys/class/power_supply/BAT0")
+        exit(1)
+
+    try:
+        capacity = int(capacity)
+    except ValueError:
+        print(f"Capacity did not return integer.\ncapacity: {capacity}")
+        time.sleep(poll_short)
+        continue
+
+    if status not in ["Discharging", "Charging", "Unknown"]:
+        print(f"Status not of known value.\nstatus: {status}")
+        time.sleep(poll_short)
+        continue
+
+    if status in ["Discharging", "Unknown"]:
+        for w in warnings:
+            if capacity <= w and (previous is None or w < previous):
+                previous = w
+                send_notification("Battery Warning", f"{capacity}% remaining", 15000)
+
+    if status == "Charging":
+        previous = None
+
+    print(f"status: {status}\ncapacity: {capacity}")
+
+    if capacity >= warnings[0]+poll_duration_decrease_offset:
+        time.sleep(poll_long)
+    else:
+        time.sleep(poll_short)
