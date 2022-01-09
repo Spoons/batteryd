@@ -12,7 +12,7 @@ def send_notification(title: str, msg: str, time_ms: int):
     notify = dbus.Interface(dbus.SessionBus().get_object(bus_name, object_path), interface)
     notify.Notify("",0,"",title, msg, [], {"urgency":1}, time_ms)
 
-warnings = [25, 20, 15, 10] + list(range(10, 20))
+warnings = [ 30 ] + list(range(10, 20))
 warnings = sorted(warnings, reverse=True)
 
 poll_duration_decrease_offset = 15
